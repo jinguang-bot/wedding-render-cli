@@ -22,102 +22,73 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import qwenvl  # noqa: E402
 
-SCHEMA_PROMPT = """你是婚礼场地空间布局分析师。看图中的婚礼布置，按下面的 JSON schema 估计空间布局并输出。
+SCHEMA_PROMPT = """你是场地空间布局分析师。看图中的场景布置，按下面的 JSON schema 估计空间布局并输出。
 
-【尺度标定】拱门高度通常 2.2~3.0 米；婚礼椅宽约 0.45 米；长桌宽约 0.9 米。
-【坐标系】原点在礼堂中心，Y 轴指向海（晚宴方向）为正；单位米。
+【尺度标定】座椅宽约 0.45 米；人行门高约 2.1 米；标准层高 2.8~3.5 米。
+【坐标系】原点在场地中心，X 轴向右，Y 轴向远处（纵深），Z 向上；单位米。
 
 schema（只输出这一个 JSON，不要多余文字）：
 {
  "time": "day|dusk|night 按图中光线判断",
- "venue": {"chapel": {"length": 8-16, "width": 5-12, "wall_h": 3-7}},
- "ceremony": {
-   "arch": {"pos": [x,y,z], "width": 1.5-5, "height": 2.0-3.5,
-            "palette": "white_cloth|greenery|petal 之一（按拱门主材质）"},
-   "aisle": {"rows": 0-10, "seats_per_row": 0-14, "aisle_w": 1.2-3.0},
-   "sign_in": {"pos": [x,y]}  // 图中无签到区则省略
- },
- "dinner": {  // 图中无晚宴区则整个省略
-   "pos_y": 14-40, "long_tables": 0-6, "table_spacing": 1.5-6,
-   "chairs_per_side": 4-15,
-   "string_lights": {"height": 2.2-4.5} 或省略,
-   "dessert": {"pos": [x,y]} 或省略
- },
- "cameras": ["ceremony_front","ceremony_side45","ceremony_doorview","dinner_wide","dinner_guest","dinner_night"] 的子集
+ "ground": {"size": [宽, 深], "material": "lawn|floor_light|stone|wood_deck 之一"},
+ "backdrop": {"sea": true} 或省略,
+ "objects": [   // 场地中的主要结构件与元素（数量按图估计，通常 3~30 个）
+   {"name": "英文标识", "type": "box|sphere|cylinder",
+    "size": [x,y,z], "location": [x,y,z], "rotation": [0,0,z角度],
+    "material": "wood|wood_dark|wood_deck|glass|metal_black|white_fabric|greenery|stone|floor_light|warm_light 之一"}
+ ],
+ "cameras": ["front", "side45", "top", "wide"] 的子集
 }
-图中没有的区域直接省略字段；数字按图中实际情况估计，不要照抄示例。"""
+objects 覆盖图中可辨识的主要结构（舞台/墙体/桌椅成组时可合并为大件示意）；不要照抄示例。"""
 
 REVIEW_PROMPT = """你是空间布局校对员。第一张图是原始参考图，下面是你此前估计的布局 JSON：
 %s
-请对照原图逐项检查：数量（座椅排数/每排数/长桌数）、尺度（拱门宽高、桌长）、相对位置（拱门在礼堂前端、晚宴在草坪海侧）、时段判断。
+请对照原图逐项检查：物体数量与类别、尺寸比例、相对位置、时段判断。
 只修正与原图不符的地方；确有依据再改，拿不准的保持原值。
 只输出修正后的完整 JSON，不要解释。"""
 
-# 数值钳制表：字段路径 → (min, max, default)
-CLAMPS = {
-    ("venue", "chapel", "length"): (8, 16, 12),
-    ("venue", "chapel", "width"): (5, 12, 8),
-    ("venue", "chapel", "wall_h"): (3, 7, 5),
-    ("ceremony", "arch", "width"): (1.5, 5, 3.0),
-    ("ceremony", "arch", "height"): (2.0, 3.5, 2.6),
-    ("ceremony", "aisle", "rows"): (0, 10, 4),
-    ("ceremony", "aisle", "seats_per_row"): (0, 14, 6),
-    ("ceremony", "aisle", "aisle_w"): (1.2, 3.0, 1.8),
-    ("dinner", "pos_y"): (14, 40, 26),
-    ("dinner", "long_tables"): (0, 6, 2),
-    ("dinner", "table_spacing"): (1.5, 6, 3),
-    ("dinner", "chairs_per_side"): (4, 15, 8),
-}
-VALID_PALETTES = {"white_cloth", "greenery", "petal", "monet_lavender"}
 VALID_TIMES = {"day", "dusk", "night"}
-VALID_CAMERAS = {"ceremony_front", "ceremony_side45", "ceremony_doorview",
-                 "dinner_wide", "dinner_guest", "dinner_night"}
+VALID_MATERIALS = None  # 材质自由字符串，渲染端对未知材质回退灰色
+VALID_CAMERAS = {"front", "back", "side45", "top", "wide"}
 
 
 def sanitize(cfg, base):
-    """v2 语义：cfg（agent/看图产物）为权威源；base 只补缺失的顶层键；
-    已知数值字段做钳制、枚举字段做校验。不丢弃任何未知字段（chairs/replica/exterior 等透传）。"""
+    """通用语义：cfg 为权威源；base 只补缺失顶层键；
+    校验 time 枚举、objects 列表结构、cameras 预设名；不做领域字段钳制。"""
+    import copy
     out = copy.deepcopy(cfg) if cfg else {}
     if base:
         for k, v in base.items():
             if k not in out:
                 out[k] = copy.deepcopy(v)
 
-    def clampv(path, val, dft):
-        lo, hi, _ = CLAMPS.get(path, (None, None, dft))
-        try:
-            v = float(val)
-        except (TypeError, ValueError):
-            return dft
-        if lo is None:
-            return v
-        return round(max(lo, min(hi, v)), 1)
+    if "time" not in out:
+        out["time"] = "day"
+    if out["time"] not in VALID_TIMES:
+        out["time"] = "day"
 
-    def walk(node, path=()):
-        if isinstance(node, dict):
-            for k in list(node.keys()):
-                p = path + (k,)
-                if p in CLAMPS:
-                    node[k] = clampv(p, node[k], CLAMPS[p][2])
-                else:
-                    walk(node[k], p)
+    g = out.get("ground")
+    if not isinstance(g, dict) or not g.get("size"):
+        out["ground"] = {"size": [24, 24], "material": "lawn"}
 
-    walk(out)
-
-    if "time" not in out or out["time"] not in VALID_TIMES:
-        out["time"] = "dusk" if "time" not in out else out["time"]
-        if out["time"] not in VALID_TIMES:
-            out["time"] = "dusk"
-    ch = out.setdefault("venue", {}).setdefault("chapel", {})
-    pal = ch.get("windows")  # noqa: 占位无操作，保持结构可读
-    a = out.setdefault("ceremony", {}).get("arch")
-    if isinstance(a, dict) and a.get("palette") not in VALID_PALETTES:
-        a["palette"] = "white_cloth"
-    cams = [c0 for c0 in (out.get("cameras") or []) if c0 in VALID_CAMERAS]
-    if cams:
-        out["cameras"] = cams
+    objs = out.get("objects")
+    if not isinstance(objs, list):
+        out["objects"] = []
     else:
-        out.pop("cameras", None)
+        clean = []
+        for i, o in enumerate(objs):
+            if not isinstance(o, dict):
+                continue
+            o.setdefault("name", "obj_%d" % i)
+            o.setdefault("type", "box")
+            o.setdefault("location", [0, 0, 0])
+            o.setdefault("size", [1, 1, 1])
+            o.setdefault("rotation", [0, 0, 0])
+            clean.append(o)
+        out["objects"] = clean
+
+    cams = [c for c in (out.get("cameras") or []) if c in VALID_CAMERAS]
+    out["cameras"] = cams or ["front", "side45", "wide"]
     return out
 
 

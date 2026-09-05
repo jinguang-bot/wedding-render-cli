@@ -19,7 +19,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 PKG_DIR = Path(__file__).resolve().parent
 SCRIPTS = {
     "compose": PKG_DIR / "scripts" / "compose_layout.py",
@@ -29,9 +29,8 @@ SCRIPTS = {
     "rebuild_runner": PKG_DIR / "scripts" / "rebuild_runner.py",
     "photoreal": PKG_DIR / "scripts" / "photoreal_render" / "photoreal.py",
     "review": PKG_DIR / "scripts" / "photoreal_render" / "review.py",
-    "tag": PKG_DIR / "scripts" / "wedding" / "tag_cases.py",
 }
-SKILL_DIRS = ["wedding-render", "scene-skeleton", "photoreal-render"]
+SKILL_DIRS = ["scene-skeleton", "photoreal-render"]
 
 
 def out(ok, cmd, **data):
@@ -147,7 +146,7 @@ def cmd_init(a):
     ws = Path(a.ws).resolve()
     for d in ("layouts", "renders", "finals", "assets"):
         (ws / d).mkdir(parents=True, exist_ok=True)
-    seed_src = PKG_DIR / "assets" / "seed_chapel.json"
+    seed_src = PKG_DIR / "assets" / "seed_scene.json"
     seed = ws / "layouts" / "scene.v0.json"
     if not seed.exists():
         shutil.copy(seed_src, seed)
@@ -214,17 +213,6 @@ def cmd_review(a):
     card = str(card) + ".review.json" if card.is_absolute() else str(ws / a.image) + ".review.json"
     out(rc == 0, "review", image=a.image, review_json=card if os.path.exists(card) else None,
         log_tail=tail)
-
-
-def cmd_tag(a):
-    ws = Path(a.ws).resolve()
-    args = [sys.executable, str(SCRIPTS["tag"]), "--cases", a.cases, "--out", a.out]
-    if a.only:
-        args += ["--only", a.only]
-    if a.limit:
-        args += ["--limit", str(a.limit)]
-    rc, tail = run(args, ws, timeout=3600)
-    out(rc == 0, "tag", index=a.out, rc=rc, log_tail=tail)
 
 
 def cmd_preview(a):
@@ -350,8 +338,6 @@ def cmd_schema(a):
                       "effect": "照片级化到 finals/（锁布局+材质语义+风格参考）"},
         "review": {"usage": "wedding-render review --ws DIR --image finals/x.png --layout layouts/x.json",
                    "effect": "qwen-vl 四维评分卡（通过线3.5），写 <image>.review.json"},
-        "tag": {"usage": "wedding-render tag --ws DIR --cases <案例图根目录> --out assets/index.csv [--only 婚策名] [--limit N]",
-                "effect": "案例图 VLM 打标，断点续跑"},
         "preview": {"usage": "wedding-render preview --ws DIR --layout layouts/x.json [--open]",
                     "effect": "生成 preview.html 四栏对照页（参考图/JSON/骨架/成品）"},
         "snapshot": {"usage": "wedding-render snapshot --ws DIR --blend sessions/x.blend --base layouts/x.json --out layouts/x.overlay.json",
@@ -395,10 +381,6 @@ def main():
 
     p = sub.add_parser("review"); p.add_argument("--ws", default=".")
     p.add_argument("--image", required=True); p.add_argument("--layout", required=True); p.set_defaults(fn=cmd_review)
-
-    p = sub.add_parser("tag"); p.add_argument("--ws", default=".")
-    p.add_argument("--cases", required=True); p.add_argument("--out", default="assets/index.csv")
-    p.add_argument("--only"); p.add_argument("--limit", type=int); p.set_defaults(fn=cmd_tag)
 
     p = sub.add_parser("preview"); p.add_argument("--ws", default=".")
     p.add_argument("--layout", required=True); p.add_argument("--open", action="store_true"); p.set_defaults(fn=cmd_preview)

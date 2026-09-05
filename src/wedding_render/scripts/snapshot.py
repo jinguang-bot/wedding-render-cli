@@ -16,18 +16,7 @@ import os
 import sys
 
 # 与 layout.py 一致的图元判定：按名称前缀归类型
-BASE_PREFIXES = (
-    "chapel_", "wall_", "win_", "sea_", "ent_", "roof_", "beam_", "ridge_",
-    "seat_", "backrest_", "aisle_", "arch_", "sign_", "table_", "dchair_",
-    "light_pole", "wire_", "bulb_", "dessert_", "fence_", "stone_path",
-    "porch_", "shrub", "lawn", "sea", "cam_", "Sun", "lamp_petal",
-    # replica 级礼堂确定性底座件（v6）
-    "skirt_", "sglass_", "post_", "spring_", "sconce_", "stained_",
-    "gbl_", "foldoor_", "col_white_", "chand_", "door_", "ent_",
-    "terrace_", "sea_curtain", "sea_muntin", "sea_lintel", "sea_pier",
-    "wchair_", "platform_", "gazebo_", "palm_", "path_", "beach",
-    "site_lawn", "hedge_",
-)
+BASE_PREFIXES = ("ground", "sea", "lawn", "sky", "Sun")
 
 
 def obj_type(o):

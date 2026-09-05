@@ -23,7 +23,7 @@ wedding-render version
 成功则跳过安装。否则确认前置（Python ≥3.10、`uv`），然后安装**固定版本 wheel**：
 
 ```bash
-uv tool install "https://github.com/jinguang-bot/wedding-render-cli/releases/download/v0.3.0/wedding_render_cli-0.3.0-py3-none-any.whl"
+uv tool install "https://github.com/jinguang-bot/wedding-render-cli/releases/download/v0.4.0/wedding_render_cli-0.4.0-py3-none-any.whl"
 ```
 
 验证（必须成功才算完成本步）：

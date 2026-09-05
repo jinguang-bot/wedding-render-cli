@@ -38,17 +38,26 @@ def load_env():
 
 # ---------------- 材质语义翻译（与 blender/semantic_palette.md 同步） ----------------
 PALETTE_TEXT = {
-    "white_cloth": "柔软的白色纱幔与白玫瑰/白桔梗花艺，哑光织物质感",
-    "greenery": "自然舒展的绿植叶材（尤加利、龟背竹、蕨类），清透有层次",
-    "warm_light": "点亮的暖黄串灯与蜡烛，柔和光斑",
-    "wood": "原木质感家具与浅色橡木地板",
-    "glass": "清透玻璃器皿与复古镜面，反射环境光",
-    "iron": "哑光黑色金属支架/铁艺拱架",
-    "petal": "通道两侧散落的白色玫瑰花瓣",
-    "chapel_wall": "礼堂米白石质墙面",
-    "lawn": "修剪平整的海滨草坪",
-    "sea": "远处南海海面与天际线",
-    "tablecloth": "垂坠感米白色桌布，桌面花艺与烛台",
+    "white_fabric": "柔软的白色织物与纱幔，哑光织物质感",
+    "greenery": "自然舒展的绿植叶材，清透有层次",
+    "warm_light": "点亮的暖光灯串与蜡烛，柔和光斑",
+    "wood": "原木质感家具与木饰面",
+    "wood_dark": "深色胡桃木饰面与木结构",
+    "wood_deck": "户外防腐木平台，板条清晰",
+    "floor_light": "抛光浅色石材地面，柔和倒影",
+    "stone": "天然石材立面与台阶",
+    "glass": "清透玻璃幕墙与窗格，反射环境光",
+    "metal_black": "哑光黑金属构架",
+    "metal": "拉丝金属表面",
+    "fabric_red": "深红色织物幕幔",
+    "paint_white": "乳白色漆面墙体",
+    "paint_cream": "奶油色漆面",
+    "lawn": "修剪平整的草坪",
+    "sea": "开阔的海面与天际线",
+    "stained_green": "绿色系彩绘玻璃",
+    "stained_red": "红色系彩绘玻璃",
+    "stained_blue": "蓝色系彩绘玻璃",
+    "stained_amber": "琥珀色系彩绘玻璃",
 }
 
 TIME_TEXT = {
@@ -64,34 +73,27 @@ LOCK_LAYOUT = (
 
 
 def build_prompt(layout, camera_name):
-    """从 layout JSON 自动组装照片级化指令"""
-    c = layout.get("ceremony", {})
-    d = layout.get("dinner", {})
-    t = layout.get("time", "dusk")
+    """从场景 JSON 通用组装照片级化指令（领域语义交给工作区 palette.json 与用户 prompt）"""
     parts = [
-        "把这张婚礼现场布局示意图转成照片级真实的婚礼现场照片。",
+        "把这张场景布局示意图转成照片级真实的实景照片。",
         LOCK_LAYOUT,
-        "整体氛围：" + TIME_TEXT.get(t, TIME_TEXT["dusk"]) + "，三亚海滨婚礼，专业婚礼摄影质感。",
+        "整体氛围：" + TIME_TEXT.get(layout.get("time", "day"), TIME_TEXT["day"]) + "，专业摄影质感。",
     ]
-    if camera_name.startswith("ceremony"):
-        arch = c.get("arch", {})
-        desc = []
-        if arch.get("palette") in PALETTE_TEXT:
-            desc.append(PALETTE_TEXT[arch["palette"]])
-        desc.append("宾客座椅为白色婚礼椅，通道有散落花瓣")
-        parts.append("仪式区：" + "；".join(desc) + "。")
-    if camera_name.startswith("dinner"):
-        n = d.get("long_tables", 2)
-        parts.append(
-            "晚宴区：%d 张长桌，%s；%s。"
-            % (n, PALETTE_TEXT["tablecloth"], PALETTE_TEXT["warm_light"])
-        )
+    g = layout.get("ground", {}) or {}
+    if g.get("material") in PALETTE_TEXT:
+        parts.append("地面：" + PALETTE_TEXT[g["material"]] + "。")
+    objs = layout.get("objects") or []
+    described = [PALETTE_TEXT[o.get("material")] for o in objs
+                 if isinstance(o, dict) and o.get("material") in PALETTE_TEXT]
+    if described:
+        uniq = list(dict.fromkeys(described))
+        parts.append("场景主要材质：" + "；".join(uniq) + "。")
+    if (layout.get("backdrop") or {}).get("sea"):
+        parts.append("背景：开阔海面与天际线。")
     parts.append(
-        "所有花艺自然舒展不呆板，材质细节丰富（织纹理/花瓣层次/金属反光），"
-        "景深自然，8k 婚礼实拍质感。"
+        "材质细节丰富、光照物理正确、景深自然，8k 实拍质感。"
     )
-    return "\n".join(parts)
-
+    return chr(10).join(parts)
 
 # ---------------- 图片工具 ----------------
 

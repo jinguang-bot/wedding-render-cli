@@ -48,7 +48,7 @@ def main():
     finals = sorted(glob.glob(os.path.join(ws, "finals", tag + "_*.png")))
     # 排除带 .review 的json伴生文件不存在问题；finals 中成品图（排除实验图）
     parts = [
-        "<html><head><meta charset='utf-8'><title>婚礼布局预览 %s</title><style>"
+        "<html><head><meta charset='utf-8'><title>场景布局预览 %s</title><style>"
         "body{font-family:-apple-system,'PingFang SC',sans-serif;background:#faf9f7;"
         "margin:24px;color:#37352f}h1{font-size:20px}h2{font-size:15px;margin:24px 0 8px;"
         "border-bottom:2px solid #e9e9e8;padding-bottom:4px}"
@@ -59,7 +59,7 @@ def main():
         "pre{background:#fff;padding:14px;border-radius:8px;font-size:12px;"
         "overflow:auto;max-width:640px;box-shadow:0 1px 3px rgba(0,0,0,.08)}"
         "</style></head><body>",
-        "<h1>婚礼布局预览 · %s（%s）</h1>" % (tag, cfg.get("time", "")),
+        "<h1>场景布局预览 · %s（%s）</h1>" % (tag, cfg.get("time", "")),
         section("1 · 原始参考图（布局来源）", [img_tag(s, caption="参考 %d" % (i + 1))
                                              for i, s in enumerate(srcs)]),
         "<h2>2 · 当前布局 JSON（单一事实源）</h2><pre>%s</pre>"

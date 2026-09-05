@@ -1,0 +1,21 @@
+{
+  "version": "seed",
+  "note": "通用空场景种子：地面+自适应机位。objects 由 agent 经 MCP 亲手构建，或 compose 看图生成",
+  "time": "day",
+  "ground": {
+    "size": [
+      24,
+      24
+    ],
+    "material": "lawn"
+  },
+  "backdrop": {
+    "sea": false
+  },
+  "objects": [],
+  "cameras": [
+    "front",
+    "side45",
+    "wide"
+  ]
+}

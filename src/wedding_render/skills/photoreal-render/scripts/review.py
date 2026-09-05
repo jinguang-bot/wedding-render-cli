@@ -23,7 +23,7 @@ import urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import qwenvl  # noqa: E402
 
-SCORE_PROMPT = """你是婚礼效果图的质检评审。对照【骨架布局图】与【布局要求】，评审【成品效果图】。
+SCORE_PROMPT = """你是场景效果图的质检评审。对照【骨架布局图】与【布局要求】，评审【成品效果图】。
 
 维度与权重：布局一致性35 / 元素符合度25 / 风格匹配20 / 真实感20。
 各维度打 1~5 分（5 最好），只输出一个 JSON 对象，不要输出其他文字：

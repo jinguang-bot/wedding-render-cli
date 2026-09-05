@@ -25,17 +25,10 @@ with open(base_path, encoding="utf-8") as f:
     cfg = json.load(f)
 
 layout.clear_scene()
-_v = cfg.get("venue", {})
-L, W = layout.build_venue(_v)
-if _v.get("chapel", {}).get("replica"):
-    layout.build_replica_exterior(_v, L, W)
-else:
-    layout.build_exterior(_v, L, W, _v.get("chapel", {}).get("sea_opening", {}).get("w", 4.5))
-if cfg.get("ceremony"):
-    layout.build_ceremony(cfg)
-if cfg.get("dinner"):
-    layout.build_dinner(cfg)
+layout.build_ground(cfg.get("ground"), cfg.get("backdrop"))
+n_base = layout.build_objects(cfg.get("objects"))
 layout.build_lighting(cfg.get("time", "day"))
+print("[rebuild] base 物体 %d" % n_base)
 
 if overlay_path:
     ov = _load("apply_overlay")
@@ -46,5 +39,5 @@ tag = os.path.splitext(os.path.basename(base_path))[0]
 ws = os.path.dirname(os.path.dirname(os.path.abspath(base_path)))
 out_dir = os.path.join(ws, "renders")
 os.makedirs(out_dir, exist_ok=True)
-layout.render_cameras(cfg.get("cameras", ["chapel_interior"]), out_dir, tag, quick=quick, cfg=cfg)
+layout.render_cameras(cfg.get("cameras", ["front", "side45", "wide"]), out_dir, tag, quick=quick, cfg=cfg)
 print("[rebuild] done ->", out_dir)

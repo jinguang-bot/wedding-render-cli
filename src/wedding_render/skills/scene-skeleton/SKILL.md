@@ -1,6 +1,6 @@
 ---
 name: scene-skeleton
-description: 3D 场景骨架生成：从参考图/需求估计空间布局生成 scene JSON，Blender headless 渲染多机位骨架示意图（秒级快渲染），并产出 preview 对照页供人在环迭代。当用户要求"看图建 3D 场景/生成布局骨架/渲染布局示意图/快速预览布局"，或被父级技能（如 wedding-render）编排时使用。不限婚礼场景，任何需要"先用 3D 锁定空间关系"的可视化任务都适用。
+description: 3D 场景骨架生成：从参考图/需求估计空间布局生成 scene JSON，Blender headless 渲染多机位骨架示意图（秒级快渲染），并产出 preview 对照页供人在环迭代。当用户要求"看图建 3D 场景/生成布局骨架/渲染布局示意图/快速预览布局"，或被父级技能（如 wedding-render）编排时使用。不限场景，任何需要"先用 3D 锁定空间关系"的可视化任务都适用。
 ---
 
 # scene-skeleton · 3D 场景骨架
@@ -21,7 +21,7 @@ description: 3D 场景骨架生成：从参考图/需求估计空间布局生成
 ```
 
 首次初始化：`mkdir -p layouts renders && cp <skill_dir>/assets/layouts/seed_chapel.json layouts/<scene>.v0.json`
-（种子=精准礼堂纯建筑模板；礼堂几何参数已内置于建模器默认值）
+（种子=通用空场景模板：地面+自适应机位；objects 由 agent 经 MCP 亲手构建或 compose 生成）
 
 依赖：Blender 4/5（`brew install --cask blender`）；Python 3.10+。
 
