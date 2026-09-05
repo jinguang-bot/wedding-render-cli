@@ -39,6 +39,18 @@ def out(ok, cmd, **data):
     sys.exit(0 if ok else 1)
 
 
+def blender_version(blender):
+    """完整输出版本解析：返回 (major_minor, first_line)。--version 共 13 行，run() 的 12 行 tail 会截掉版本行"""
+    try:
+        r = subprocess.run([blender, "--version"], capture_output=True, text=True, timeout=60)
+        full = (r.stdout or "") + (r.stderr or "")
+        m = re.search(r"Blender\s+(\d+\.\d+)", full)
+        first = full.strip().splitlines()[0] if full.strip() else ""
+        return (m.group(1) if m else None), first
+    except Exception:
+        return None, ""
+
+
 def find_blender():
     p = shutil.which("blender")
     if p:
@@ -80,13 +92,7 @@ def cmd_version(a):
 def cmd_doctor(a):
     ws = Path(a.ws).resolve()
     blender = find_blender()
-    bv = ""
-    if blender:
-        rc, tail = run([blender, "--version"], ws, timeout=60)
-        m = re.search(r"Blender\s+(\d+\.\d+)", tail or "")
-        bv = m.group(1) if m else ""
-        if tail:
-            bv = bv or tail.splitlines()[0][:40]
+    bv = blender_version(blender)[1] if blender else ""
     key_ok, key_at = ws_env_ready(ws)
     mcp_ok = False
     try:
@@ -253,11 +259,7 @@ def cmd_setup_mcp(a):
         break
     if addon_src is None:
         out(False, "setup-mcp", steps=steps, error="未找到 blender-mcp 自带 addon")
-    mm = None
-    if blender:
-        rc, tail = run([blender, "--version"], ws, timeout=60)
-        mv = re.search(r"Blender\s+(\d+\.\d+)", tail or "")
-        mm = mv.group(1) if mv else None
+    mm = blender_version(blender)[0] if blender else None
     if mm:
         addons_dir = Path.home() / "Library/Application Support/Blender" / mm / "scripts/addons"
     else:
@@ -278,12 +280,15 @@ def cmd_setup_mcp(a):
     # 4) Blender 内置 Python 装 requests（addon 依赖，尽力而为）
     if blender and mm:
         bp = next(iter(Path(f"/Applications/Blender.app/Contents/Resources/{mm}/python/bin").glob("python3.*")), None)
+    else:
+        bp = None
+    if mm:
         if bp:
             run([str(bp), "-m", "ensurepip", "--upgrade"], ws, timeout=300)
             rc2, _ = run([str(bp), "-m", "pip", "install", "-q", "requests"], ws, timeout=300)
             steps["blender_requests"] = {"ok": rc2 == 0, "python": str(bp)}
-        else:
-            steps["blender_requests"] = {"ok": False, "note": "未定位 Blender 内置 Python，首次启动 addon 若报缺 requests 请手动安装"}
+    else:
+        steps["blender_requests"] = {"ok": False, "note": "未定位 Blender 内置 Python，首次启动 addon 若报缺 requests 请手动安装"}
 
     # 5) autostart 脚本写入工作区
     autostart = PKG_DIR / "assets" / "autostart_mcp.py"
