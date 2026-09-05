@@ -23,7 +23,7 @@ wedding-render version
 成功则跳过安装。否则确认前置（Python ≥3.10、`uv`），然后安装**固定版本 wheel**：
 
 ```bash
-uv tool install "https://github.com/yangjinguang/wedding-render-cli/releases/download/v0.2.0/wedding_render_cli-0.2.0-py3-none-any.whl"
+uv tool install "https://github.com/jinguang-bot/wedding-render-cli/releases/download/v0.2.0/wedding_render_cli-0.2.0-py3-none-any.whl"
 ```
 
 验证（必须成功才算完成本步）：
@@ -79,7 +79,7 @@ wedding-render init --ws <工作区目录>
 新版本发布后（版本号见仓库 Release 页）：
 
 ```bash
-uv tool uninstall wedding-render-cli && uv tool install "https://github.com/yangjinguang/wedding-render-cli/releases/download/v<新版本>/wedding_render_cli-<新版本>-py3-none-any.whl"
+uv tool uninstall wedding-render-cli && uv tool install "https://github.com/jinguang-bot/wedding-render-cli/releases/download/v<新版本>/wedding_render_cli-<新版本>-py3-none-any.whl"
 ```
 
 注意：同版本号重复安装可能命中 uv 的 wheel 缓存；升级请勿只加 --force。
