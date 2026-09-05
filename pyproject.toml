@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wedding-render-cli"
+version = "0.2.0"
+description = "婚礼现场效果图渲染管线 CLI：3D 骨架建模 + 照片级化 + 审图闭环，供 AI agent 安装调用"
+requires-python = ">=3.10"
+dependencies = []   # 零第三方依赖（标准库）
+
+[project.scripts]
+wedding-render = "wedding_render.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wedding_render"]
