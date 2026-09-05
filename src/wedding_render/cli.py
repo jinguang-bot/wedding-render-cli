@@ -10,6 +10,7 @@ wedding-render CLI — 婚礼现场效果图渲染管线的命令行入口（供
 """
 import argparse
 import json
+import re
 import socket
 import os
 import platform
@@ -82,7 +83,10 @@ def cmd_doctor(a):
     bv = ""
     if blender:
         rc, tail = run([blender, "--version"], ws, timeout=60)
-        bv = tail.splitlines()[0] if tail else ""
+        m = re.search(r"Blender\s+(\d+\.\d+)", tail or "")
+        bv = m.group(1) if m else ""
+        if tail:
+            bv = bv or tail.splitlines()[0][:40]
     key_ok, key_at = ws_env_ready(ws)
     mcp_ok = False
     try:
@@ -252,8 +256,8 @@ def cmd_setup_mcp(a):
     mm = None
     if blender:
         rc, tail = run([blender, "--version"], ws, timeout=60)
-        ver = tail.split("(")[0].strip().split()[-1] if tail else ""
-        mm = ".".join(ver.split(".")[:2]) or None
+        mv = re.search(r"Blender\s+(\d+\.\d+)", tail or "")
+        mm = mv.group(1) if mv else None
     if mm:
         addons_dir = Path.home() / "Library/Application Support/Blender" / mm / "scripts/addons"
     else:
