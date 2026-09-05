@@ -16,4 +16,5 @@ cp ../.agents/skills/wedding-render/scripts/{tag_cases.py,qwenvl.py} src/wedding
 cp -R ../.agents/skills/wedding-render ../.agents/skills/scene-skeleton ../.agents/skills/photoreal-render src/wedding_render/skills/
 find src/wedding_render/skills -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
 cp ../.agents/skills/scene-skeleton/assets/layouts/seed_chapel.json src/wedding_render/assets/
+cp ../.agents/skills/scene-skeleton/assets/autostart_mcp.py src/wedding_render/assets/
 echo "synced."
