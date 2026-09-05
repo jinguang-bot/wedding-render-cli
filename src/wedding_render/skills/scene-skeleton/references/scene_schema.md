@@ -103,3 +103,17 @@ sanitize 钳回（范围见上），手工编辑时同样遵守。
 
 复现三层：L1=layouts/wedding.v6.json（参数） L2=overlay.json（增量） L3=sessions/*.blend（100%保真）。
 材质契约新增：wood_dark/wood_deck/column_white/iron_black/candle/stained_{green,red,blue,amber}。
+
+## 海之恋婚礼堂（style="haizhilian"，v8 起 2026-09-05 尺寸图驱动）
+
+`"chapel": {"style": "haizhilian", "length": 11, "width": 9, "wall_h": 3.9, "roof_rise": 2.2, "glass_top": 4.4, "beams": 5}`
+
+用户提供的官方尺寸图规格（权威）：内部 9×11m（场地 14.5×16.3 含入口外区 5.3m）、
+脊高 6.1（wall_h 3.9 + roof_rise 2.2）、玻璃顶 4.4、海侧开口 7×2.7（落地玻璃到地）、
+吊灯 3.8（HZL["lamp_z"]）、海端室内台阶平台。
+外观（航拍实证）：红棕双坡屋面 + 海侧坡中下段玻璃格阵（5×4）、入口端奶油山墙 + 深木
+A 型饰边 + 石材门柱与耳房、白色圆柱。
+外部（build_site_haizhilian）：木平台/尖桩栅栏+栅栏门/沙滩/海面、六角红顶凉亭、
+风格化椰树（伞冠）、绿篱、入口步道。
+新机位：hzl_aerial（航拍）、hzl_lawn（草坪海侧回望）。
+材质新增：roof_red/stone_cream/trunk/frond。

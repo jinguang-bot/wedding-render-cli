@@ -25,7 +25,8 @@ BASE_PREFIXES = (
     "skirt_", "sglass_", "post_", "spring_", "sconce_", "stained_",
     "gbl_", "foldoor_", "col_white_", "chand_", "door_", "ent_",
     "terrace_", "sea_curtain", "sea_muntin", "sea_lintel", "sea_pier",
-    "wchair_",
+    "wchair_", "platform_", "gazebo_", "palm_", "path_", "beach",
+    "site_lawn", "hedge_",
 )
 
 

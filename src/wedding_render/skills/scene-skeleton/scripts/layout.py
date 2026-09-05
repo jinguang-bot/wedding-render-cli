@@ -30,7 +30,11 @@ PALETTE = {
     "petal":        (0.99, 0.93, 0.95, 1.0),   # 花瓣/地毯
     "monet_lavender": (0.78, 0.70, 0.85, 1.0),  # 莫奈雾紫（睡莲/鸢尾色系）
     "wood_dark":    (0.18, 0.11, 0.07, 1.0),
-    "wood_honey":   (0.66, 0.46, 0.26, 1.0),   # 蜂蜜色实木椅   # 深胡桃木（结构/吊顶/栅栏）
+    "wood_honey":   (0.66, 0.46, 0.26, 1.0),   # 蜂蜜色实木椅
+    "roof_red":     (0.45, 0.19, 0.12, 1.0),   # 红棕金属屋面（海之恋）
+    "stone_cream":  (0.86, 0.81, 0.71, 1.0),   # 奶油色石材山墙/门柱
+    "trunk":        (0.42, 0.33, 0.22, 1.0),   # 椰树干
+    "frond":        (0.28, 0.52, 0.26, 1.0),   # 椰树叶   # 深胡桃木（结构/吊顶/栅栏）
     "wood_deck":    (0.35, 0.24, 0.15, 1.0),   # 户外木平台
     "column_white": (0.93, 0.91, 0.87, 1.0),   # 白色圆柱
     "iron_black":   (0.07, 0.07, 0.08, 1.0),   # 黑铁（吊灯/棂条）
@@ -154,6 +158,8 @@ def build_venue(cfg):
     ch = dict(DEFAULT_CHAPEL)
     ch.update(cfg.get("chapel", {}))
     L, W, H, rise = ch["length"], ch["width"], ch["wall_h"], ch["roof_rise"]
+    if ch.get("style") == "haizhilian":
+        return build_haizhilian(ch, L, W, H, rise)
     if ch.get("replica"):
         return build_replica_chapel(ch, L, W, H, rise)
     t = 0.25  # 墙厚
@@ -470,6 +476,187 @@ def build_replica_chapel(ch, L, W, H, rise):
     return L, W
 
 
+# ---------------- 海之恋婚礼堂（尺寸图驱动，2026-09-05） ----------------
+
+HZL = {
+    "opening_w": 7.0, "opening_h": 2.7,       # 海侧开口（尺寸图 7m / 2.7m 落地玻璃到地）
+    "lamp_z": 3.8,                             # 地面到灯 3.8m
+    "platform": {"w": 3.0, "d": 2.0, "h": 0.35},   # 台阶+平台（海端）
+    "apron_d": 5.3,                            # 入口外区深（16.3-11）
+}
+
+
+def build_haizhilian(ch, L, W, H, rise):
+    """海之恋婚礼堂：内部 9×11m，脊 6.1，弹簧 3.9，玻璃顶 4.4，开口 7×2.7。
+    外观：红棕双坡屋面（海侧坡嵌玻璃格阵）、入口端奶油山墙+深木 A 型饰边。
+    坐标：Y+ 海侧，Y- 入口。"""
+    t = 0.25
+    box("chapel_floor", (W, L, 0.2), (0, 0, 0.1), "floor_light")
+
+    # ---- 侧墙：深木裙0.8 + 通高玻璃到弹簧3.9 + 立柱 + 弹簧梁 ----
+    skirt = 0.8
+    step = 2.2
+    npost = max(int(L / step) + 1, 2)
+    for side, sx in (("L", -W / 2), ("R", W / 2)):
+        box("skirt_%s" % side, (0.12, L, skirt), (sx, 0, skirt / 2), "wood_dark")
+        box("sglass_%s" % side, (0.04, L - 0.3, H - skirt - 0.15), (sx, 0, skirt + (H - skirt - 0.15) / 2), "glass")
+        for k in range(npost):
+            y = -L / 2 + k * (L / (npost - 1))
+            box("post_%s_%d" % (side, k), (0.16, 0.16, H - skirt), (sx, y, skirt + (H - skirt) / 2), "wood_dark")
+        box("spring_%s" % side, (0.2, L, 0.36), (sx, 0, H + 0.18), "wood_dark")
+
+    # ---- A 型屋面：红棕屋面（弹簧3.9 → 脊6.1），挑檐；海侧坡嵌玻璃格阵 ----
+    span = W / 2
+    slope = math.hypot(span, rise) + 0.5
+    ang = math.atan2(rise, span)
+    box("roof_L", (slope, L + 1.0, 0.09), (-span / 2 - 0.24 * math.cos(ang), 0, H + rise / 2 + 0.24 * math.sin(ang)),
+        "roof_red", rotation=(0, -ang, 0))
+    box("roof_R", (slope, L + 1.0, 0.09), (span / 2 + 0.24 * math.cos(ang), 0, H + rise / 2 + 0.24 * math.sin(ang)),
+        "roof_red", rotation=(0, ang, 0))
+    box("ridge_beam", (0.24, L + 1.0, 0.22), (0, 0, H + rise - 0.1), "wood_dark")
+    for bi in range(ch.get("beams", 5)):
+        by = -L / 2 + 0.8 + bi * ((L - 1.6) / max(ch.get("beams", 5) - 1, 1))
+        box("beam_%d" % bi, (W - 0.3, 0.2, 0.24), (0, by, H - 0.14), "wood_dark")
+    _stained_strip(L, W, H, rise, -L / 2 + 0.5, L / 2 - 0.5)
+    # 海侧坡玻璃格阵（航拍实证：深色格阵嵌于坡面中段）
+    gcols, grows = 5, 4
+    for gc in range(gcols):
+        for gr in range(grows):
+            u = 0.34 + 0.20 * gr            # 沿坡向位置系数（中下段，航拍实证）
+            v = (gc + 0.5) / gcols - 0.5    # 沿长度横向
+            gx = span * u * math.cos(ang) * 0.98
+            gz = H + rise * u * 0.98
+            box("slopeglass_%d_%d" % (gc, gr), (1.05, 1.35, 0.06),
+                (gx + 0.35, v * (L - 1.5), gz + 0.06), "glass",
+                rotation=(0, -ang, 0))
+
+    # ---- 海侧（Y+）：开口 7×2.7 + 门上横带玻璃 + 棂格三角（玻璃顶4.4→脊）----
+    ow, oh = HZL["opening_w"], HZL["opening_h"]
+    side_w = (W - ow) / 2
+    for k, sx in enumerate((-(ow / 2 + side_w / 2), (ow / 2 + side_w / 2))):
+        box("sea_pier_%d" % k, (side_w, t, H), (sx, L / 2 - t / 2, H / 2), "wood_dark")
+        box("sea_pier_glass_%d" % k, (side_w - 0.2, 0.05, oh), (sx, L / 2 - t / 2, oh / 2), "glass")
+    box("sea_beam", (W, t, 0.3), (0, L / 2 - t / 2, oh + 0.15), "wood_dark")
+    gz0, gz1 = oh + 0.3, H
+    box("sea_curtain_glass", (W - 0.5, 0.05, gz1 - gz0), (0, L / 2 - t / 2, (gz0 + gz1) / 2), "glass")
+    nm = 4
+    for mi in range(nm + 1):
+        mx = -((W - 0.5) / 2) + (W - 0.5) * mi / nm
+        box("sea_muntin_%d" % mi, (0.09, 0.09, gz1 - gz0), (mx, L / 2 - t / 2, (gz0 + gz1) / 2), "wood_dark")
+    box("sea_curtain_hbar", (W - 0.5, 0.09, 0.08), (0, L / 2 - t / 2, (gz0 + gz1) / 2), "wood_dark")
+    # 玻璃顶 4.4：三角从 4.4 起到脊
+    tri_z = ch.get("glass_top", 4.4)
+    tri_rise = (H + rise) - tri_z
+    tw = (W - 0.2) * (1 - (tri_z - H) / rise) if rise else W - 0.2
+    tri_prism("sea_gable_wall", W, rise, t, (0, L / 2 - t, H), "wood_dark")
+    tri_prism("sea_gable_glass", max(tw, 1.0), max(tri_rise - 0.1, 0.4), 0.04,
+              (0, L / 2 - t + 0.05, tri_z), "glass")
+    seg_between("sea_tri_L", (-(W / 2 - 0.1), L / 2 - t, tri_z), (0, L / 2 - t, H + rise), 0.06, "wood_dark")
+    seg_between("sea_tri_R", ((W / 2 - 0.1), L / 2 - t, tri_z), (0, L / 2 - t, H + rise), 0.06, "wood_dark")
+    for ci, sx in enumerate((-1, 1)):
+        cylinder("col_white_S%d" % ci, 0.14, H, (sx * (W / 2 - 0.28), L / 2 - 0.32, H / 2), "column_white")
+
+    # ---- 台阶+平台（海端室内，尺寸图"台阶"）----
+    pf = HZL["platform"]
+    box("platform", (pf["w"], pf["d"], pf["h"]), (0, L / 2 - 1.4, pf["h"] / 2 + 0.2), "floor_light")
+    for st in range(2):
+        box("platform_step_%d" % st, (pf["w"] + 0.3 - st * 0.3, 0.3, pf["h"] / 2 * (st + 1) / 2),
+            (0, L / 2 - 2.55 - 0.15 * st, 0.2 + pf["h"] * (st + 1) / 4), "floor_light")
+
+    # ---- 入口端（Y-）：奶油山墙 + 深木 A 型饰边 + 双开木门 + 石材门柱 ----
+    dw, dh = 1.8, 2.5
+    box("ent_gable_wall", (W, rise, t), (0, -L / 2 + t / 2, 0), "stone_cream")  # 占位，下面重建三角形
+    bpy.data.objects["ent_gable_wall"].select_set(False)
+    bpy.data.objects.remove(bpy.data.objects["ent_gable_wall"], do_unlink=True)
+    tri_prism("ent_gable_cream", W, rise, t, (0, -L / 2 + t, H), "stone_cream")
+    seg_between("ent_trim_L", (-(W / 2 - 0.05), -L / 2 + t / 2, H - 0.1), (0, -L / 2 + t / 2, H + rise + 0.15), 0.09, "wood_dark")
+    seg_between("ent_trim_R", ((W / 2 - 0.05), -L / 2 + t / 2, H - 0.1), (0, -L / 2 + t / 2, H + rise + 0.15), 0.09, "wood_dark")
+    box("ent_beam", (W, t, 0.32), (0, -L / 2 + t / 2, H - 0.16), "wood_dark")
+    for k, sx in enumerate((-1, 1)):
+        box("ent_glass_%d" % k, (W / 2 - dw / 2 - 0.5, 0.05, H - 0.3),
+            (sx * (dw / 2 + 0.5 + (W / 2 - dw / 2 - 0.5) / 2), -L / 2 + t / 2, (H - 0.3) / 2), "glass")
+        box("ent_porchwing_%d" % k, (1.6, 1.6, 3.0), (sx * (W / 2 + 0.75), -L / 2 + 1.0, 1.5), "stone_cream")
+        box("ent_porchroof_%d" % k, (2.1, 2.1, 0.1), (sx * (W / 2 + 0.75), -L / 2 + 1.0, 3.15), "roof_red",
+            rotation=(0, math.radians(12), 0))
+        cylinder("ent_col_%d" % k, 0.14, 3.0, (sx * (W / 2 + 0.1), -L / 2 - 0.1, 1.5), "stone_cream")
+    box("ent_door_L", (dw / 2 - 0.03, 0.08, dh), (-dw / 4, -L / 2 + t / 2, dh / 2 + 0.2), "wood_dark")
+    box("ent_door_R", (dw / 2 - 0.03, 0.08, dh), (dw / 4, -L / 2 + t / 2, dh / 2 + 0.2), "wood_dark")
+    box("ent_transom", (dw + 0.5, 0.05, H - dh - 0.45), (0, -L / 2 + t / 2, dh + 0.2 + (H - dh - 0.45) / 2), "glass")
+    for ci, sx in enumerate((-1, 1)):
+        cylinder("col_white_N%d" % ci, 0.14, H, (sx * (W / 2 - 0.28), -L / 2 + 0.32, H / 2), "column_white")
+
+    # ---- 吊灯（地面到灯 3.8m）----
+    chz = HZL["lamp_z"]
+    cylinder("chand_chain", 0.018, H + rise - chz - 0.05, (0, 0.5, (H + rise + chz) / 2), "iron_black")
+    cylinder("chand_stem", 0.035, 0.5, (0, 0.5, chz + 0.25), "iron_black")
+    for ti, (r, z) in enumerate(((0.55, chz), (0.34, chz - 0.22))):
+        bpy.ops.mesh.primitive_torus_add(major_radius=r, minor_radius=0.022, location=(0, 0.5, z))
+        tor = bpy.context.active_object; tor.name = "chand_ring_%d" % ti
+        tor.rotation_euler = (math.radians(90), 0, 0)
+        tor.data.materials.append(mat("iron_black"))
+        nc = 8 if ti == 0 else 6
+        for ci in range(nc):
+            a = 2 * math.pi * ci / nc
+            cylinder("chand_c_%d_%d" % (ti, ci), 0.016, 0.16,
+                     (0.5 + r * math.cos(a), 0.5 + r * math.sin(a), z + 0.12), "candle")
+    return L, W
+
+
+def build_site_haizhilian(cfg, L, W):
+    """外部场地：14.5×16.3 场地、草坪、凉亭、椰树、绿篱、沙滩栅栏门、沙滩与海"""
+    site_w, site_d = 14.5, 16.3
+    apron = HZL["apron_d"]
+    y_front = -(L / 2 + apron)   # 场地前缘
+    plane("site_lawn", (site_w + 26, site_d + 30), (0, y_front + site_d / 2 - 0.02, 0.0), "lawn")
+
+    # 入口石板步道（入口前 → 侧向绕行）
+    plane("path_front", (3.2, 3.4), (0, -L / 2 - 1.8, 0.015), "floor_light")
+    plane("path_side", (10.0, 2.4), (5.2, -L / 2 + 3.0, 0.015), "floor_light")
+
+    # 沙滩 + 栅栏（场地后缘 y=L/2+1.2，栅栏门对齐中轴步道）
+    yb = L / 2 + 1.2
+    plane("beach", (site_w + 40, 9.0), (0, yb + 4.8, -0.05), "petal")
+    plane("sea", (240, 60), (0, yb + 12, -0.15), "sea")
+    fe = dict(DEFAULT_EXTERIOR["fence"]); h = fe["height"]
+    _picket_fence("fence_beach_L", (-site_w / 2 - 2, yb), (-1.6, yb), h)
+    _picket_fence("fence_beach_R", (1.6, yb), (site_w / 2 + 2, yb), h)
+    box("fence_gate_path", (3.2, 0.1, 0.06), (0, yb, 0.03), "wood_dark")
+
+    # 凉亭（航拍：礼堂右前方六角红顶亭）
+    gx, gy = 6.8, 1.8
+    for k in range(6):
+        a = math.pi / 3 * k + math.pi / 6
+        cylinder("gazebo_post_%d" % k, 0.09, 2.4, (gx + 1.7 * math.cos(a), gy + 1.7 * math.sin(a), 1.2), "wood_dark")
+    cylinder("gazebo_floor", 2.1, 0.18, (gx, gy, 0.09), "floor_light")
+    bpy.ops.mesh.primitive_cone_add(radius1=2.4, radius2=0.15, depth=1.1, vertices=6,
+                                    location=(gx, gy, 3.0))
+    gz = bpy.context.active_object; gz.name = "gazebo_roof"
+    gz.data.materials.append(mat("roof_red"))
+    cylinder("gazebo_knob", 0.05, 0.3, (gx, gy, 3.65), "wood_dark")
+
+    # 椰树（航拍：后侧两棵 + 左侧若干）
+    import random
+    rnd = random.Random(7)
+    palms = [(-6.3, 4.6, 5.2), (-7.4, 1.5, 4.6), (8.4, 5.2, 5.6), (9.2, -2.5, 4.9), (-8.6, -3.5, 5.0), (-4.8, 6.2, 4.4)]
+    for pi, (px, py, ph) in enumerate(palms):
+        for seg in range(4):
+            tilt = 0.05 * seg
+            cylinder("palm_%d_tr%d" % (pi, seg), 0.13 - seg * 0.012, ph / 4,
+                     (px + tilt * 0.5 * seg, py, ph / 8 * (seg + 1) * 0.98), "trunk")
+        for li, (cr, cz) in enumerate(((2.3, ph - 0.55), (1.75, ph - 0.15), (1.15, ph + 0.22))):
+            bpy.ops.mesh.primitive_cone_add(radius1=cr, radius2=0.05, depth=0.62, vertices=8,
+                                            location=(px + 0.18 * li, py, cz))
+            cn = bpy.context.active_object
+            cn.name = "palm_%d_crown%d" % (pi, li)
+            cn.data.materials.append(mat("frond"))
+
+    # 绿篱（场地前缘与两侧）
+    for hz in (("hedge_front", (site_w / 2 + 4, 0.5, 0.55), (0, y_front + 1.0, 0.275)),
+               ("hedge_L", (0.5, site_d - 4, 0.55), (-site_w / 2 - 1.2, y_front + site_d / 2, 0.275)),
+               ("hedge_R", (0.5, site_d - 4, 0.55), (site_w / 2 + 1.2, y_front + site_d / 2, 0.275))):
+        box(hz[0], hz[1], hz[2], "greenery")
+
+
 # ---------------- 仪式区 ----------------
 
 def build_ceremony(cfg):
@@ -637,6 +824,10 @@ def camera_preset(name, L, W, cfg):
         "chapel_interior": ((-W / 2 + 0.7, -L / 2 + 1.0, 1.6), (W / 4, L / 4, 2.2)),
         # 外部斜侧看礼堂海侧立面（山墙/栅栏/步道）
         "chapel_exterior": ((W / 2 + 5.5, L / 2 + 10.5, 2.4), (0, L / 2 - 1.0, 3.2)),
+        # 海之恋：航拍机位（前左侧高空，海在右后）
+        "hzl_aerial": ((-15.0, -17.0, 13.5), (1.5, 3.0, 0.5)),
+        # 海之恋：草坪海侧回望机位（对应用户草坪照片）
+        "hzl_lawn": ((9.5, 14.5, 1.7), (-1.5, 2.0, 3.6)),
     }
     return dynamic.get(name)
 
@@ -712,7 +903,9 @@ def main():
     clear_scene()
     _v = cfg.get("venue", {})
     L, W = build_venue(_v)
-    if _v.get("chapel", {}).get("replica"):
+    if _v.get("chapel", {}).get("style") == "haizhilian":
+        build_site_haizhilian(_v, L, W)
+    elif _v.get("chapel", {}).get("replica"):
         build_replica_exterior(_v, L, W)
     else:
         sea_w = _v.get("chapel", {}).get("sea_opening", {}).get("w", 4.5)
