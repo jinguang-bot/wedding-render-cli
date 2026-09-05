@@ -10,6 +10,7 @@ wedding-render CLI — 婚礼现场效果图渲染管线的命令行入口（供
 """
 import argparse
 import json
+import socket
 import os
 import platform
 import shutil
@@ -17,7 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 PKG_DIR = Path(__file__).resolve().parent
 SCRIPTS = {
     "compose": PKG_DIR / "scripts" / "compose_layout.py",
@@ -83,9 +84,18 @@ def cmd_doctor(a):
         rc, tail = run([blender, "--version"], ws, timeout=60)
         bv = tail.splitlines()[0] if tail else ""
     key_ok, key_at = ws_env_ready(ws)
+    mcp_ok = False
+    try:
+        _s = socket.create_connection(("127.0.0.1", 9876), timeout=1.5)
+        _s.close()
+        mcp_ok = True
+    except Exception:
+        pass
     out(True, "doctor",
         python=sys.version.split()[0],
         blender={"found": bool(blender), "path": blender, "version": bv},
+        blender_mcp={"reachable": mcp_ok, "port": 9876,
+                     "hint": "未连通时：运行 setup-mcp，然后启动 Blender GUI（加载工作区 autostart_mcp.py）或手动 N 面板→MCP for Blender→Connect"},
         dashscope_key={"ready": key_ok, "at": key_at,
                        "hint": "在工作区 .env 写入 DASHSCOPE_API_KEY=sk-...（阿里百炼，生图与 qwen-vl 同 key）"},
         workspace=str(ws), workspace_ready=(ws / "layouts").exists())
@@ -216,6 +226,77 @@ def cmd_preview(a):
     out(rc == 0, "preview", page=str(ws / "preview.html"), rc=rc, log_tail=tail)
 
 
+def cmd_setup_mcp(a):
+    """安装 blender-mcp 服务端 + addon 进 Blender + 输出 MCP 客户端配置（v0.3 必装）"""
+    ws = Path(a.ws).resolve()
+    steps = {}
+    blender = find_blender()
+
+    # 1) 服务端
+    if shutil.which("blender-mcp"):
+        steps["server"] = {"ok": True, "note": "blender-mcp 已安装"}
+    else:
+        rc, tail = run(["uv", "tool", "install", "blender-mcp"], ws, timeout=600)
+        steps["server"] = {"ok": rc == 0, "log": tail[-200:] if rc else tail}
+        if rc != 0:
+            out(False, "setup-mcp", steps=steps, error="blender-mcp 服务端安装失败（需要 uv）")
+
+    # 2) addon 装入 Blender 用户插件目录
+    addon_src = None
+    tool_dir = Path(os.environ.get("UV_TOOL_DIR", str(Path.home() / ".local/share/uv/tools")))
+    for p in tool_dir.glob("blender-mcp/lib/python3.*/site-packages/blender_mcp/bundled/addon.py"):
+        addon_src = p
+        break
+    if addon_src is None:
+        out(False, "setup-mcp", steps=steps, error="未找到 blender-mcp 自带 addon")
+    mm = None
+    if blender:
+        rc, tail = run([blender, "--version"], ws, timeout=60)
+        ver = tail.split("(")[0].strip().split()[-1] if tail else ""
+        mm = ".".join(ver.split(".")[:2]) or None
+    if mm:
+        addons_dir = Path.home() / "Library/Application Support/Blender" / mm / "scripts/addons"
+    else:
+        addons_dir = ws / "blender_addons"
+    addons_dir.mkdir(parents=True, exist_ok=True)
+    dest = addons_dir / "blender_mcp.py"
+    shutil.copy(addon_src, dest)
+    steps["addon"] = {"ok": True, "path": str(dest)}
+
+    # 3) headless 启用插件并保存偏好
+    if blender:
+        rc, tail = run([blender, "-b", "--python-expr",
+                        "import bpy\nbpy.ops.preferences.addon_enable(module='blender_mcp')\n"
+                        "bpy.ops.wm.save_userpref()\nprint('ADDON_ENABLED')"],
+                       ws, timeout=180)
+        steps["enable"] = {"ok": "ADDON_ENABLED" in tail}
+
+    # 4) Blender 内置 Python 装 requests（addon 依赖，尽力而为）
+    if blender and mm:
+        bp = next(iter(Path(f"/Applications/Blender.app/Contents/Resources/{mm}/python/bin").glob("python3.*")), None)
+        if bp:
+            run([str(bp), "-m", "ensurepip", "--upgrade"], ws, timeout=300)
+            rc2, _ = run([str(bp), "-m", "pip", "install", "-q", "requests"], ws, timeout=300)
+            steps["blender_requests"] = {"ok": rc2 == 0, "python": str(bp)}
+        else:
+            steps["blender_requests"] = {"ok": False, "note": "未定位 Blender 内置 Python，首次启动 addon 若报缺 requests 请手动安装"}
+
+    # 5) autostart 脚本写入工作区
+    autostart = PKG_DIR / "assets" / "autostart_mcp.py"
+    dst_as = ws / "autostart_mcp.py"
+    shutil.copy(autostart, dst_as)
+    launch = ("open -a Blender --args --python '%s'" % dst_as) if platform.system() == "Darwin" \
+             else "blender --python '%s'" % dst_as
+    steps["autostart"] = {"ok": True, "path": str(dst_as), "launch": launch}
+
+    # 6) MCP 客户端配置（三平台同构）
+    steps["client_config"] = {"mcpServers": {"blender": {"command": "uvx", "args": ["blender-mcp"]}},
+                              "note": "ZCode/Claude Code 放入 mcpServers 段；Codex 写 [mcp_servers.blender]"}
+    ok = all(v.get("ok") for v in steps.values() if isinstance(v, dict) and "ok" in v)
+    out(ok, "setup-mcp", steps=steps,
+        note="MCP 会话需 Blender GUI 运行且已 Connect（端口 9876）；headless 命令不受影响")
+
+
 def cmd_snapshot(a):
     """从已保存的 .blend 会话导出 overlay（L2 增量层）并回写会话"""
     ws = Path(a.ws).resolve()
@@ -268,6 +349,8 @@ def cmd_schema(a):
                      "effect": "从 Blender 会话导出增量层 overlay.json（复现三层之 L2）"},
         "rebuild": {"usage": "wedding-render rebuild --ws DIR --base layouts/x.json [layouts/x.overlay.json] [--quick]",
                     "effect": "L1参数+L2增量 一体化重建并按 cameras 渲染"},
+        "setup-mcp": {"usage": "wedding-render setup-mcp --ws DIR",
+                      "effect": "安装 blender-mcp 服务端+Blender addon+autostart 脚本，输出 MCP 客户端配置（交互建模必装）"},
     }, tips=[
         "管线命令均需先 init 工作区且 .env 配好 DASHSCOPE_API_KEY",
         "典型流程：compose → skeleton --quick → preview（人审）→ skeleton（正式）→ photoreal → review",
@@ -313,6 +396,8 @@ def main():
     p = sub.add_parser("snapshot"); p.add_argument("--ws", default=".")
     p.add_argument("--blend", required=True); p.add_argument("--base", required=True)
     p.add_argument("--out", required=True); p.set_defaults(fn=cmd_snapshot)
+
+    p = sub.add_parser("setup-mcp"); p.add_argument("--ws", default="."); p.set_defaults(fn=cmd_setup_mcp)
 
     p = sub.add_parser("rebuild"); p.add_argument("--ws", default=".")
     p.add_argument("--base", required=True); p.add_argument("--overlay")

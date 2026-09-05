@@ -7,6 +7,7 @@
 
 ```bash
 uv tool install --force ./cli          # 或发布后的 wheel URL
+wedding-render setup-mcp --ws ./wedding-render  # 必装：Blender MCP 通道
 wedding-render setup --agent zcode     # 装技能族（zcode/claude-code/codex）
 wedding-render init --ws ./wedding-render && $EDITOR wedding-render/.env  # 填 DASHSCOPE_API_KEY
 wedding-render doctor --ws ./wedding-render

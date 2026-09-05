@@ -5,7 +5,7 @@
 让 agent 逐字执行项目根 `cli/install.md`（Museon 风格 onboarding），核心三步：
 
 ```bash
-uv tool install "https://github.com/jinguang-bot/wedding-render-cli/releases/download/v0.2.0/wedding_render_cli-0.2.0-py3-none-any.whl"
+uv tool install "https://github.com/jinguang-bot/wedding-render-cli/releases/download/v0.3.0/wedding_render_cli-0.3.0-py3-none-any.whl"
 wedding-render setup --agent auto      # 技能族装入宿主（zcode/claude-code/codex）
 wedding-render doctor && wedding-render schema
 ```

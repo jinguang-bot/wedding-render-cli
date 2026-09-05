@@ -23,7 +23,7 @@ wedding-render version
 成功则跳过安装。否则确认前置（Python ≥3.10、`uv`），然后安装**固定版本 wheel**：
 
 ```bash
-uv tool install "https://github.com/jinguang-bot/wedding-render-cli/releases/download/v0.2.0/wedding_render_cli-0.2.0-py3-none-any.whl"
+uv tool install "https://github.com/jinguang-bot/wedding-render-cli/releases/download/v0.3.0/wedding_render_cli-0.3.0-py3-none-any.whl"
 ```
 
 验证（必须成功才算完成本步）：
@@ -32,7 +32,23 @@ uv tool install "https://github.com/jinguang-bot/wedding-render-cli/releases/dow
 wedding-render version
 ```
 
-### 第 2 步 · 安装技能族到宿主
+### 第 2 步 · 安装 Blender MCP（必装——交互建模的核心通道）
+
+```bash
+wedding-render setup-mcp --ws <工作区目录>
+```
+
+该命令完成：安装 blender-mcp 服务端 → 将 addon 装入 Blender 并启用 → 写入 autostart 脚本 → 输出 MCP 客户端配置。
+随后**启动 Blender GUI**（macOS：`open -a Blender --args --python '<工作区>/autostart_mcp.py'`，或在 Blender 内 N 面板 → MCP for Blender → Connect）。
+验证通道已通（port 9876）：
+
+```bash
+wedding-render doctor --ws <工作区目录>
+```
+
+`blender_mcp.reachable` 必须为 true 才算本步完成。宿主支持 MCP 时，把输出的 client_config 挂载后 agent 即可直接操作 Blender。
+
+### 第 3 步 · 安装技能族到宿主
 
 ```bash
 wedding-render setup --agent auto
@@ -42,7 +58,7 @@ wedding-render setup --agent auto
 成功标准：返回 JSON 中 `installed` 含三个路径（wedding-render / scene-skeleton / photoreal-render）。
 宿主不支持技能目录时：告知用户将以 CLI 直调模式使用（跳过本步，不算失败）。
 
-### 第 3 步 · 环境体检
+### 第 4 步 · 环境体检
 
 ```bash
 wedding-render doctor --ws <工作区目录>
@@ -52,15 +68,15 @@ wedding-render doctor --ws <工作区目录>
 - DASHSCOPE_API_KEY 未配置 → 请用户提供阿里百炼 key，写入 `<工作区>/.env`：
   `DASHSCOPE_API_KEY=sk-...`（生图与视觉模型共用）后重跑 doctor
 
-### 第 4 步 · 初始化工作区（已有则跳过）
+### 第 5 步 · 初始化工作区（已有则跳过）
 
 ```bash
 wedding-render init --ws <工作区目录>
 ```
 
-### 第 5 步 · 最终校验
+### 第 6 步 · 最终校验
 
-依次运行 `version`、`doctor --ws <ws>`、`schema` 三条；向用户**汇报摘要**
+依次运行 `version`、`doctor --ws <ws>`、`schema` 三条；**`doctor` 的 blender_mcp.reachable 必须为 true**（MCP 主模式闸门）；向用户**汇报摘要**
 （CLI 版本 / 技能安装与重启需求 / Blender 与 key 状态 / 工作区路径），不要粘贴大段原始 JSON。
 
 ---
@@ -68,9 +84,9 @@ wedding-render init --ws <工作区目录>
 ## Onboarding 之后
 
 - 用 `wedding-render schema` 实时发现命令面与用法，不依赖记忆
-- 典型任务流：`compose`（看图出布局）→ `skeleton --quick`（秒级预览）→ `preview --open`（人在环审）
-  → `skeleton`（正式渲染）→ `photoreal`（照片级化）→ `review`（自动评分，<3.5 按短板路由修正）
-  → `snapshot`（会话快照）/ `rebuild`（三层复现重建）
+- 主工作流（MCP 具身模式）：agent 亲眼看参考图/渲染图 → 经 blender MCP 在 GUI 会话中亲手建模复刻与调整 →
+  `snapshot`（每轮有效修改后快照三层状态）→ `photoreal`（照片级化）→ `review`（双评审）。
+  辅助：`compose`（看图→布局JSON 起草）· `skeleton --quick`（JSON 快速预览，draft 用）
 - 只读命令（version/doctor/schema）可直接执行；产生费用（compose/photoreal/review/tag）与
   渲染（skeleton/rebuild）前确认工作区 .env 就绪；批量生成前先单图确认
 
